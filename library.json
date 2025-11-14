@@ -1,6 +1,6 @@
 {
-    "title": "Diagrams Editor",
-    "machineName": "H5PEditor.Diagrams",
+    "title": "Diagram Editor",
+    "machineName": "H5PEditor.Diagram",
     "majorVersion": 1,
     "minorVersion": 0,
     "patchVersion": 0,
@@ -9,11 +9,11 @@
         "majorVersion": 1,
         "minorVersion": 26
     },
-    "preloadedJs": [{ "path": "diagrams-editor.js" }],
-    "preloadedCss": [{ "path": "diagrams-editor.css" }],
+    "preloadedJs": [{ "path": "diagram-editor.js" }],
+    "preloadedCss": [{ "path": "diagram-editor.css" }],
     "preloadedDependencies": [
         {
-            "machineName": "H5P.Diagrams",
+            "machineName": "H5P.Diagram",
             "majorVersion": 1,
             "minorVersion": 0
         }

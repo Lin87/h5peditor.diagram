@@ -1,22 +1,22 @@
 /* preview styles */
 
-.h5p-diagrams-editor-preview-wrapper {
+.h5p-diagram-editor-preview-wrapper {
     margin-top: 1em;
 }
 
-.h5p-diagrams-editor-preview {
+.h5p-diagram-editor-preview {
     border: 1px solid #ddd;
     padding: 0.5em;
     background: #fafafa;
 }
 
-.h5p-diagrams-editor-preview .h5p-diagrams {
+.h5p-diagram-editor-preview .h5p-diagram {
     width: 100%;
 }
 
 /* intersection styles */
 
-.h5p-diagrams-intersection-row {
+.h5p-diagram-intersection-row {
     position: relative;
     background-color: #fcfcfc;
     padding: 20px;
@@ -24,7 +24,7 @@
     margin-bottom: 0.5em;
 }
 
-.h5p-diagrams-circle-field {
+.h5p-diagram-circle-field {
     display: inline-block;
     margin: 0 0.5em 0 0;
 }
@@ -33,12 +33,12 @@
     margin: 0.5em 0 0;
 }
 
-.h5p-diagrams-add-circle,
-.h5p-diagrams-remove-intersection {
+.h5p-diagram-add-circle,
+.h5p-diagram-remove-intersection {
     margin: 0;
 }
 
-.h5p-diagrams-remove-intersection {
+.h5p-diagram-remove-intersection {
     position: absolute;
     top: 0;
     right: 0;
@@ -49,11 +49,11 @@
     cursor: pointer;
 }
 
-.h5p-diagrams-remove-intersection:hover {
+.h5p-diagram-remove-intersection:hover {
     color: #c90c0c;
 }
 
-.h5p-diagrams-remove-intersection:after {
+.h5p-diagram-remove-intersection:after {
     font-family: "H5P";
     content: "";
     opacity: .7;
