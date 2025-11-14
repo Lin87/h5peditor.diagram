@@ -215,8 +215,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.renderCircleSelect($row, intersection, index, setIdx);
             });
 
-            // "Add circle" button (optional 3rd)
-            if (sets.length < 3) {
+            // "Add circle" button (optional 3rd or 4th)
+            if (sets.length < 4) {
                 $('<button>', {
                     type: 'button',
                     class: 'h5peditor-button h5peditor-button-textual h5p-diagram-add-circle',
@@ -238,7 +238,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             }).appendTo(labelField);
 
             $('<span>', {
-                class: 'h5peditor-label h5peditor-required',
+                class: 'h5peditor-label',
                 text: 'Label',
             }).appendTo(labelLabel);
 
@@ -262,7 +262,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             }).appendTo(sizeField);
 
             $('<span>', {
-                class: 'h5peditor-label h5peditor-required',
+                class: 'h5peditor-label',
                 text: 'Size',
             }).appendTo(sizeLabel);
 
