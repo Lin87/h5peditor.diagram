@@ -1,5 +1,6 @@
 {
     "title": "Diagram Editor",
+    "description": "A H5P Editor enhancement to include various functionalities to edit diagrams that can be made with the H5P Diagram content type.",
     "machineName": "H5PEditor.Diagram",
     "majorVersion": 1,
     "minorVersion": 0,
