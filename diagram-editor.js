@@ -123,9 +123,54 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             class: 'h5p-diagram-intersections-widget',
         });
 
+        this._root = null;
+        this._intervalId = null;
+        this._lastCirclesSignature = null;
+
         this.appendTo = function ($wrapper) {
             $wrapper.append(self.$container);
+
+            // Cache the library-level parent (root editor for this content)
+            self._root = H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+
+            // Initial render
             self.render();
+
+            // Start polling for circle changes
+            self._intervalId = window.setInterval(function () {
+                self._checkCircleChanges();
+            }, 500);
+        };
+
+        /**
+         * Get current list of Euler circles from root params
+         */
+        this._getCircles = function () {
+            const root = self._root || H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+            const circles = (root.params && root.params.euler) || [];
+            return circles;
+        };
+
+        /**
+         * Check if circle definitions (labels, etc.) changed.
+         * If yes, re-render to update dropdown options.
+         */
+        this._checkCircleChanges = function () {
+            const circles = self._getCircles();
+
+            // Only need a lightweight signature; labels are enough
+            const signature = JSON.stringify(
+                circles.map((c) => ({
+                    label: c.label || '',
+                    size: Number(c.size) || 0,
+                    color: c.color || '',
+                }))
+            );
+
+            if (signature !== self._lastCirclesSignature) {
+                self._lastCirclesSignature = signature;
+                self.render(); // re-render dropdowns with new labels
+            }
         };
 
         this.render = function () {
@@ -170,7 +215,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.renderCircleSelect($row, intersection, index, setIdx);
             });
 
-            // "Add circle" button (optional 3rd/4th)
+            // "Add circle" button (optional 3rd)
             if (sets.length < 3) {
                 $('<button>', {
                     type: 'button',
@@ -185,11 +230,17 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                     });
             }
 
-            // label input
+            // Label input
             const labelField = $('<div>', { class: 'field field-name-label text' }).appendTo($row);
-            const labelLabel = $('<label>', { class: 'h5peditor-label-wrapper', for: 'field-diagram-label-' + index }).appendTo(labelField);
+            const labelLabel = $('<label>', {
+                class: 'h5peditor-label-wrapper',
+                for: 'field-diagram-label-' + index,
+            }).appendTo(labelField);
 
-            $('<span>', { class: 'h5peditor-label h5peditor-required', text: 'Label' }).appendTo(labelLabel);
+            $('<span>', {
+                class: 'h5peditor-label h5peditor-required',
+                text: 'Label',
+            }).appendTo(labelLabel);
 
             const $labelInput = $('<input>', {
                 id: 'field-diagram-label-' + index,
@@ -205,9 +256,15 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
             // Size input
             const sizeField = $('<div>', { class: 'field field-name-size number' }).appendTo($row);
-            const sizeLabel = $('<label>', { class: 'h5peditor-label-wrapper', for: 'field-diagram-size-' + index }).appendTo(sizeField);
+            const sizeLabel = $('<label>', {
+                class: 'h5peditor-label-wrapper',
+                for: 'field-diagram-size-' + index,
+            }).appendTo(sizeField);
 
-            $('<span>', { class: 'h5peditor-label h5peditor-required', text: 'Size' }).appendTo(sizeLabel);
+            $('<span>', {
+                class: 'h5peditor-label h5peditor-required',
+                text: 'Size',
+            }).appendTo(sizeLabel);
 
             const $sizeInput = $('<input>', {
                 id: 'field-diagram-size-' + index,
@@ -222,9 +279,9 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 let size = Number(this.value);
 
                 if (size >= 100) {
-                  size = 100;
+                    size = 100;
                 } else if (size <= 0) {
-                  size = 0;
+                    size = 0;
                 }
 
                 intersection.size = size || 0;
@@ -249,12 +306,13 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             const ref = intersection.sets[setIndex];
 
             const field = $('<div>', { class: 'field h5p-diagram-circle-field select' }).appendTo($row);
-            const $select = $('<select>', { class: 'h5peditor-select h5p-diagram-circle-select', id: 'field-diagram-select-' + intersectionIndex + '-' + setIndex }).appendTo(field);
+            const $select = $('<select>', {
+                class: 'h5peditor-select h5p-diagram-circle-select',
+                id: 'field-diagram-select-' + intersectionIndex + '-' + setIndex,
+            }).appendTo(field);
 
             // Build options from current circles
-            const root = H5PEditor.findLibraryAncestor(self.parent) || self.parent;
-            const eulerParams = (root.params && root.params.euler) || {};
-            const circles = (eulerParams || []).map((c) => c.circle || c);
+            const circles = self._getCircles();
 
             circles.forEach(function (circle, i) {
                 const label = (circle.label || 'Circle ' + (i + 1)).trim();
@@ -298,6 +356,10 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         };
 
         this.remove = function () {
+            if (self._intervalId) {
+                window.clearInterval(self._intervalId);
+                self._intervalId = null;
+            }
             self.$container.remove();
         };
     }
