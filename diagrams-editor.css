@@ -1,0 +1,61 @@
+/* preview styles */
+
+.h5p-diagrams-editor-preview-wrapper {
+    margin-top: 1em;
+}
+
+.h5p-diagrams-editor-preview {
+    border: 1px solid #ddd;
+    padding: 0.5em;
+    background: #fafafa;
+}
+
+.h5p-diagrams-editor-preview .h5p-diagrams {
+    width: 100%;
+}
+
+/* intersection styles */
+
+.h5p-diagrams-intersection-row {
+    position: relative;
+    background-color: #fcfcfc;
+    padding: 20px;
+    border: 1px solid #d0d0d1;
+    margin-bottom: 0.5em;
+}
+
+.h5p-diagrams-circle-field {
+    display: inline-block;
+    margin: 0 0.5em 0 0;
+}
+
+.field-name-size {
+    margin: 0.5em 0 0;
+}
+
+.h5p-diagrams-add-circle,
+.h5p-diagrams-remove-intersection {
+    margin: 0;
+}
+
+.h5p-diagrams-remove-intersection {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 2.5em;
+    color: #747275;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.h5p-diagrams-remove-intersection:hover {
+    color: #c90c0c;
+}
+
+.h5p-diagrams-remove-intersection:after {
+    font-family: "H5P";
+    content: "";
+    opacity: .7;
+    display: block;
+}

@@ -1,0 +1,21 @@
+{
+    "title": "Diagrams Editor",
+    "machineName": "H5PEditor.Diagrams",
+    "majorVersion": 1,
+    "minorVersion": 0,
+    "patchVersion": 0,
+    "runnable": 0,
+    "coreApi": {
+        "majorVersion": 1,
+        "minorVersion": 26
+    },
+    "preloadedJs": [{ "path": "diagrams-editor.js" }],
+    "preloadedCss": [{ "path": "diagrams-editor.css" }],
+    "preloadedDependencies": [
+        {
+            "machineName": "H5P.Diagrams",
+            "majorVersion": 1,
+            "minorVersion": 0
+        }
+    ]
+}
