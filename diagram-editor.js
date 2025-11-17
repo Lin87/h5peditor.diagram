@@ -63,6 +63,7 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
          */
         this.renderPreview = function (libraryParent) {
             const container = self.$preview[0];
+
             if (!container) {
                 return;
             }
@@ -161,12 +162,27 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             }, 500);
         };
 
+        this._ensureCircleIds = function () {
+            const root = self._root || H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+
+            if (!root || !root.params || !Array.isArray(root.params.euler)) {
+                return;
+            }
+
+            root.params.euler.forEach((circle) => {
+                if (!circle._id) {
+                    circle._id = 'circle-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+                }
+            });
+        };
+
         /**
          * Get current list of Euler circles from root params
          */
         this._getCircles = function () {
             const root = self._root || H5PEditor.findLibraryAncestor(self.parent) || self.parent;
             const circles = (root.params && root.params.euler) || [];
+            self._ensureCircleIds();
             return circles;
         };
 
@@ -200,6 +216,14 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.params = [];
             }
 
+            // Description
+            if (self.field.description) {
+                $('<div>', {
+                    class: 'h5peditor-field-description',
+                    html: self.field.description,
+                }).appendTo(self.$container);
+            }
+
             // Render each intersection row
             self.params.forEach(function (intersection, index) {
                 self.renderIntersectionRow(intersection, index);
@@ -222,12 +246,24 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         this.renderIntersectionRow = function (intersection, index) {
             const $row = $('<div>', { class: 'h5p-diagram-intersection-row' }).appendTo(self.$container);
 
+            const fields = self.field.fields;
+            const circleSetsField = fields.find(f => f.name == 'sets') || {};
+
+            if (circleSetsField.description) {
+                $('<div>', {
+                    class: 'h5peditor-field-description',
+                    html: circleSetsField.description,
+                }).appendTo($row);
+            }
+
             // Circles dropdowns (min 2)
             const sets = Array.isArray(intersection.sets) ? intersection.sets : [];
+
             if (sets.length < 2) {
                 // ensure at least 2 entries
                 sets.push({ circleIndex: 1 }, { circleIndex: 2 });
             }
+
             intersection.sets = sets;
 
             sets.forEach(function (ref, setIdx) {
@@ -261,6 +297,15 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 text: 'Label',
             }).appendTo(labelLabel);
 
+            const labelSemantic = fields.find(f => f.name == 'label') || {};
+
+            if (labelSemantic.description) {
+                $('<div>', {
+                    class: 'h5peditor-field-description',
+                    html: labelSemantic.description,
+                }).appendTo(labelField);
+            }
+
             const $labelInput = $('<input>', {
                 id: 'field-diagram-label-' + index,
                 class: 'h5peditor-text',
@@ -284,6 +329,15 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 class: 'h5peditor-label',
                 text: 'Size',
             }).appendTo(sizeLabel);
+
+            const sizeSemantic = fields.find(f => f.name == 'size') || {};
+
+            if (sizeSemantic.description) {
+                $('<div>', {
+                    class: 'h5peditor-field-description',
+                    html: sizeSemantic.description,
+                }).appendTo(sizeField);
+            }
 
             const $sizeInput = $('<input>', {
                 id: 'field-diagram-size-' + index,
@@ -336,17 +390,41 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             circles.forEach(function (circle, i) {
                 const label = (circle.label || 'Circle ' + (i + 1)).trim();
                 $('<option>', {
-                    value: i + 1, // 1-based index
+                    value: circle._id,
                     text: label || 'Circle ' + (i + 1),
                 }).appendTo($select);
             });
 
-            // Set current value
-            const currentIndex = ref.circleIndex || 1;
-            $select.val(String(currentIndex));
+            // Determine current value:
+            let currentId = ref.circleId || null;
+
+            if (!currentId && typeof ref.circleIndex === 'number' && circles[ref.circleIndex - 1]) {
+                currentId = circles[ref.circleIndex - 1]._id;
+            }
+
+            if (!currentId && circles[0]) {
+                currentId = circles[0]._id;
+            }
+
+            // Ensure we store circleId for future stability
+            if (!ref.circleId && currentId) {
+                ref.circleId = currentId;
+            }
+
+            if (currentId) {
+                $select.val(currentId);
+            }
 
             $select.on('change', function () {
-                ref.circleIndex = Number(this.value) || 1;
+                const id = this.value;
+                ref.circleId = id;
+
+                // Also keep a numeric index for backward compatibility
+                const idx = circles.findIndex((c) => c._id === id);
+                if (idx >= 0) {
+                    ref.circleIndex = idx + 1;
+                }
+
                 self.save();
             });
 
