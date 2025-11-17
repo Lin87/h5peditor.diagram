@@ -16,6 +16,7 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
 
         this._intervalId = null;
         this._lastSerializedParams = null;
+        this._rootParent = null;
 
         /**
          * Append to wrapper (called by H5P editor)
@@ -26,6 +27,8 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
 
             // Find the library-level parent (root editor for this content type)
             const libraryParent = (H5PEditor.findLibraryAncestor && H5PEditor.findLibraryAncestor(self.parent)) || self.parent;
+
+            self._rootParent = libraryParent;
 
             // Initial render
             self.renderPreview(libraryParent);
@@ -100,6 +103,22 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         };
 
         this.validate = function () {
+            const root = self._rootParent || (H5PEditor.findLibraryAncestor && H5PEditor.findLibraryAncestor(self.parent)) || self.parent;
+
+            if (!root || !root.params) {
+                return true;
+            }
+
+            const params = root.params;
+            const type = params.diagramType || 'euler';
+
+            if (type === 'euler') {
+                delete params.pyramid;
+            } else if (type === 'pyramid') {
+                delete params.euler;
+                delete params.intersections;
+            }
+
             return true;
         };
     }
