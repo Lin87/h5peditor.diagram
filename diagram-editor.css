@@ -33,9 +33,21 @@
     margin: 0.5em 0 0;
 }
 
-.h5p-diagram-add-circle,
-.h5p-diagram-remove-intersection {
+.h5p-diagram-add-circle {
     margin: 0;
+}
+
+.h5p-diagram-remove-circle {
+    margin: 0 0.5em 0 -0.5em;
+    border: none;
+    font-size: 1em;
+    border-radius: 0 0.25em 0.25em 0;
+    cursor: pointer;
+}
+
+.h5p-diagram-remove-circle:hover {
+    color: #fff;
+    background-color: #c90c0c;
 }
 
 .h5p-diagram-remove-intersection {
@@ -47,6 +59,7 @@
     background-color: transparent;
     border: none;
     cursor: pointer;
+    margin: 0;
 }
 
 .h5p-diagram-remove-intersection:hover {
