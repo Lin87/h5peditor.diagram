@@ -115,6 +115,7 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
 
             if (type === 'euler') {
                 delete params.pyramid;
+                delete params.pyramidSettings;
             } else if (type === 'pyramid') {
                 delete params.euler;
                 delete params.intersections;
