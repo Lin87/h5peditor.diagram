@@ -62,32 +62,52 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
          * Render runtime diagram instance into the preview container
          */
         this.renderPreview = function (libraryParent) {
-            const container = self.$preview[0];
 
-            if (!container) {
+            if (!self._checkPreview(libraryParent)) {
                 return;
             }
 
+            try {
+                const rootParent = libraryParent || self.parent;
+                const params = (rootParent && rootParent.params) || {};
+                const instance = new H5P.Diagram(params, (rootParent && rootParent.contentId) || 'editor-diagram-preview');
+                instance.attach(self.$preview); // attach expects a jQuery-wrapped container
+            } catch (err) {
+                if (window.console && window.console.error) {
+                    console.error('diagram preview error:', err);
+                }
+            }
+        };
+
+        this._checkPreview = function (libraryParent) {
+            const container = self.$preview[0];
+
+            if (!container) {
+                return false;
+            }
+
             if (typeof H5P === 'undefined' || typeof H5P.Diagram !== 'function') {
-                container.innerHTML = '<em>Preview not available (diagram library not loaded).</em>';
-                return;
+                container.innerHTML = '<p class="h5p-diagram-editor-preview-error"><em>Preview not available (diagram library not loaded).</em></p>';
+                return false;
             }
 
             container.innerHTML = '';
 
             const rootParent = libraryParent || self.parent;
             const params = (rootParent && rootParent.params) || {};
+            const previewPlaceholder = '<p class="h5p-diagram-editor-preview-placeholder"><em>A preview of the diagram will be displayed here once data is available.</em></p>';
 
-            try {
-                const instance = new H5P.Diagram(params, (rootParent && rootParent.contentId) || 'editor-diagram-preview');
-
-                // attach expects a jQuery-wrapped container
-                instance.attach(self.$preview);
-            } catch (err) {
-                if (window.console && window.console.error) {
-                    console.error('diagram preview error:', err);
-                }
+            if (params.diagramType == 'euler' && params.euler.length <= 1) {
+                container.innerHTML = previewPlaceholder;
+                return false;
             }
+
+            if (params.diagramType == 'pyramid' && params.pyramid.length <= 1) {
+                container.innerHTML = previewPlaceholder;
+                return false;
+            }
+
+            return true;
         };
 
         /**
@@ -141,7 +161,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         this.setValue = setValue;
 
         this.$container = $('<div>', {
-            class: 'h5p-diagram-intersections-widget',
+            class: 'h5p-diagram-editor-intersections-widget',
         });
 
         this._root = null;
@@ -233,7 +253,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             // "Add intersection" button
             $('<button>', {
                 type: 'button',
-                class: 'h5peditor-button h5peditor-button-textual h5p-diagram-add-intersection',
+                class: 'h5peditor-button h5peditor-button-textual h5p-diagram-editor-add-intersection',
                 text: 'Add intersection',
             })
                 .appendTo(self.$container)
@@ -245,7 +265,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         };
 
         this.renderIntersectionRow = function (intersection, index) {
-            const $row = $('<div>', { class: 'h5p-diagram-intersection-row' }).appendTo(self.$container);
+            const $row = $('<div>', { class: 'h5p-diagram-editor-intersection-row' }).appendTo(self.$container);
 
             const fields = self.field.fields;
             const circleSetsField = fields.find(f => f.name == 'sets') || {};
@@ -275,7 +295,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             if (sets.length < 4) {
                 $('<button>', {
                     type: 'button',
-                    class: 'h5peditor-button h5peditor-button-textual h5p-diagram-add-circle',
+                    class: 'h5peditor-button h5peditor-button-textual h5p-diagram-editor-add-circle',
                     text: 'Add circle',
                 })
                     .appendTo($row)
@@ -365,7 +385,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             // Remove intersection
             $('<button>', {
                 type: 'button',
-                class: 'h5peditor-button h5p-diagram-remove-intersection',
+                class: 'h5peditor-button h5p-diagram-editor-remove-intersection',
                 'aria-label': 'Remove',
             })
                 .appendTo($row)
@@ -379,9 +399,9 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         this.renderCircleSelect = function ($row, intersection, intersectionIndex, setIndex) {
             const ref = intersection.sets[setIndex];
 
-            const field = $('<div>', { class: 'field h5p-diagram-circle-field select' }).appendTo($row);
+            const field = $('<div>', { class: 'field h5p-diagram-editor-circle-field select' }).appendTo($row);
             const $select = $('<select>', {
-                class: 'h5peditor-select h5p-diagram-circle-select',
+                class: 'h5peditor-select h5p-diagram-editor-circle-select',
                 id: 'field-diagram-select-' + intersectionIndex + '-' + setIndex,
             }).appendTo(field);
 
@@ -433,7 +453,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             if (intersection.sets.length > 2) {
                 $('<button>', {
                     type: 'button',
-                    class: 'h5peditor-button h5p-diagram-remove-circle',
+                    class: 'h5peditor-button h5p-diagram-editor-remove-circle',
                     text: '×',
                 })
                     .appendTo($row)
