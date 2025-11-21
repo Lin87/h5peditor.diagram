@@ -702,7 +702,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 const id = this.value;
                 ref.circleId = id;
 
-                // Also keep a numeric index for backward compatibility
+                // Keep circleIndex in sync with the selected circle so runtime can resolve it
                 const idx = circles.findIndex((circle) => circle._id === id);
                 if (idx >= 0) {
                     ref.circleIndex = idx + 1;
