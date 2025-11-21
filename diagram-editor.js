@@ -1,7 +1,86 @@
 /**
- * diagram preview editor widget
+ * H5P.Diagram — Editor widgets
+ *
+ * This file contains editor-side widgets for the Diagram content type:
+ *  - diagramPreview: shows a live preview of the current diagram configuration
+ *  - eulerIntersections: provides a custom UI for managing Euler intersections
+ *
+ * These widgets run only inside the H5P editor and never in the learner view.
+ */
+
+/**
+ * Shared editor utilities for Diagram.
+ *
+ * Provides helpers for:
+ *  - Finding the root library parent in the editor tree
+ *  - Starting / stopping simple polling timers
+ */
+(function ($) {
+    H5PEditor.DiagramEditorUtils = H5PEditor.DiagramEditorUtils || {
+        /**
+         * Find the top-level library parent for a given editor widget.
+         *
+         * @param {object} parent
+         * @returns {object}
+         */
+        getRootParent(parent) {
+            if (H5PEditor.findLibraryAncestor) {
+                return H5PEditor.findLibraryAncestor(parent) || parent;
+            }
+
+            return parent;
+        },
+
+        /**
+         * Start a polling timer and store the interval ID on the given context.
+         *
+         * @param {object} context The widget instance
+         * @param {string} propertyName Where to store the interval ID on the context
+         * @param {Function} callback Function to run at each interval
+         * @param {number} [intervalMs=500] Interval in milliseconds
+         */
+        startPolling(context, propertyName, callback, intervalMs) {
+            const interval = typeof intervalMs === 'number' ? intervalMs : 500;
+
+            // Clear any existing interval for safety
+            if (context[propertyName]) {
+                window.clearInterval(context[propertyName]);
+            }
+
+            context[propertyName] = window.setInterval(callback, interval);
+        },
+
+        /**
+         * Stop a polling timer previously started with startPolling.
+         *
+         * @param {object} context
+         * @param {string} propertyName
+         */
+        stopPolling(context, propertyName) {
+            if (context[propertyName]) {
+                window.clearInterval(context[propertyName]);
+                context[propertyName] = null;
+            }
+        },
+    };
+})(H5P.jQuery);
+
+/**
+ * Diagram preview editor widget.
+ *
+ * Renders a live Diagram instance based on the current editor state.
+ * The preview updates automatically when parameters change.
  */
 H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
+    /**
+     * Preview widget constructor.
+     *
+     * @param {H5PEditor} parent
+     * @param {object} field
+     * @param {object} params
+     * @param {Function} setValue
+     * @constructor
+     */
     function PreviewWidget(parent, field, params, setValue) {
         const self = this;
 
@@ -19,31 +98,41 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         this._rootParent = null;
 
         /**
-         * Append to wrapper (called by H5P editor)
+         * Append the preview container to the editor wrapper.
+         *
+         * Called by H5P when rendering the editor field.
+         *
+         * @param {H5P.jQuery} $wrapper
          */
         this.appendTo = function ($wrapper) {
             $wrapper.addClass('h5p-diagram-editor-preview-wrapper');
             $wrapper.append(self.$preview);
 
-            // Find the library-level parent (root editor for this content type)
-            const libraryParent = (H5PEditor.findLibraryAncestor && H5PEditor.findLibraryAncestor(self.parent)) || self.parent;
-
-            self._rootParent = libraryParent;
+            // Find and cache the library-level parent (root editor for this content type)
+            self._rootParent = H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
 
             // Initial render
-            self.renderPreview(libraryParent);
+            self.renderPreview(self._rootParent);
 
             // Poll for changes in params and re-render when they change
-            self._intervalId = window.setInterval(function () {
-                self._checkForChanges(libraryParent);
-            }, 500);
+            H5PEditor.DiagramEditorUtils.startPolling(
+                self,
+                '_intervalId',
+                function () {
+                    self._checkForChanges(self._rootParent);
+                },
+                500
+            );
         };
 
         /**
-         * Check if params changed; if so, re-render preview
+         * Check if the root params changed; if so, re-render the preview.
+         *
+         * @param {object} libraryParent
+         * @private
          */
         this._checkForChanges = function (libraryParent) {
-            const rootParent = libraryParent || self.parent;
+            const rootParent = libraryParent || self._rootParent || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
 
             if (!rootParent) {
                 return;
@@ -59,26 +148,39 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         };
 
         /**
-         * Render runtime diagram instance into the preview container
+         * Render a runtime Diagram instance into the preview container.
+         *
+         * @param {object} libraryParent
          */
         this.renderPreview = function (libraryParent) {
-
             if (!self._checkPreview(libraryParent)) {
                 return;
             }
 
             try {
-                const rootParent = libraryParent || self.parent;
+                const rootParent = libraryParent || self._rootParent || self.parent;
                 const params = (rootParent && rootParent.params) || {};
-                const instance = new H5P.Diagram(params, (rootParent && rootParent.contentId) || 'editor-diagram-preview');
-                instance.attach(self.$preview); // attach expects a jQuery-wrapped container
+                const contentId = (rootParent && rootParent.contentId) || 'editor-diagram-preview';
+
+                const instance = new H5P.Diagram(params, contentId);
+                // attach expects a jQuery-wrapped container
+                instance.attach(self.$preview);
             } catch (err) {
                 if (window.console && window.console.error) {
-                    console.error('diagram preview error:', err);
+                    console.error('Diagram preview error:', err);
                 }
             }
         };
 
+        /**
+         * Check if preview can be shown and container is ready.
+         *
+         * Shows an inline message when preview is not yet available.
+         *
+         * @param {object} libraryParent
+         * @returns {boolean}
+         * @private
+         */
         this._checkPreview = function (libraryParent) {
             const container = self.$preview[0];
 
@@ -87,22 +189,22 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
             }
 
             if (typeof H5P === 'undefined' || typeof H5P.Diagram !== 'function') {
-                container.innerHTML = '<p class="h5p-diagram-editor-preview-error"><em>Preview not available (diagram library not loaded).</em></p>';
+                container.innerHTML = '<p class="h5p-diagram-editor-preview-error">' + '<em>Preview not available (diagram library not loaded).</em>' + '</p>';
                 return false;
             }
 
             container.innerHTML = '';
 
-            const rootParent = libraryParent || self.parent;
+            const rootParent = libraryParent || self._rootParent || self.parent;
             const params = (rootParent && rootParent.params) || {};
-            const previewPlaceholder = '<p class="h5p-diagram-editor-preview-placeholder"><em>A preview of the diagram will be displayed here once data is available.</em></p>';
+            const previewPlaceholder = '<p class="h5p-diagram-editor-preview-placeholder">' + '<em>A preview of the diagram will be displayed here once data is available.</em>' + '</p>';
 
-            if (params.diagramType == 'euler' && params.euler.length <= 1) {
+            if (params.diagramType === 'euler' && (!params.euler || params.euler.length <= 1)) {
                 container.innerHTML = previewPlaceholder;
                 return false;
             }
 
-            if (params.diagramType == 'pyramid' && params.pyramid.length <= 1) {
+            if (params.diagramType === 'pyramid' && (!params.pyramid || params.pyramid.length <= 1)) {
                 container.innerHTML = previewPlaceholder;
                 return false;
             }
@@ -111,20 +213,27 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         };
 
         /**
-         * Clean up
+         * Clean up when the widget is removed from the editor.
+         *
+         * Stops polling and removes the preview container.
          */
         this.remove = function () {
-            if (self._intervalId) {
-                window.clearInterval(self._intervalId);
-                self._intervalId = null;
-            }
+            H5PEditor.DiagramEditorUtils.stopPolling(self, '_intervalId');
+
             if (self.$preview) {
                 self.$preview.remove();
             }
         };
 
+        /**
+         * Validate and normalize params before saving.
+         *
+         * Keeps only the settings relevant for the selected diagram type.
+         *
+         * @returns {boolean}
+         */
         this.validate = function () {
-            const root = self._rootParent || (H5PEditor.findLibraryAncestor && H5PEditor.findLibraryAncestor(self.parent)) || self.parent;
+            const root = self._rootParent || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
 
             if (!root || !root.params) {
                 return true;
@@ -133,6 +242,7 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
             const params = root.params;
             const type = params.diagramType || 'euler';
 
+            // Clear unused config to avoid storing stale settings
             if (type === 'euler') {
                 delete params.pyramid;
                 delete params.pyramidSettings;
@@ -151,13 +261,28 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
     return PreviewWidget;
 })(H5P.jQuery);
 
+/**
+ * Custom editor widget for Euler intersections.
+ *
+ * Provides a more user-friendly way to select which circles
+ * belong to each intersection and manage intersection size/labels.
+ */
 H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function ($) {
+    /**
+     * Euler intersections widget constructor.
+     *
+     * @param {H5PEditor} parent
+     * @param {object} field
+     * @param {Array} params
+     * @param {Function} setValue
+     * @constructor
+     */
     function Widget(parent, field, params, setValue) {
         const self = this;
 
         this.parent = parent;
         this.field = field;
-        this.params = params || []; // list of intersections
+        this.params = params || []; // List of intersections
         this.setValue = setValue;
 
         this.$container = $('<div>', {
@@ -168,23 +293,38 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         this._intervalId = null;
         this._lastCirclesSignature = null;
 
+        /**
+         * Append the widget UI to the editor wrapper.
+         *
+         * @param {H5P.jQuery} $wrapper
+         */
         this.appendTo = function ($wrapper) {
             $wrapper.append(self.$container);
 
             // Cache the library-level parent (root editor for this content)
-            self._root = H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+            self._root = H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
 
             // Initial render
             self.render();
 
-            // Start polling for circle changes
-            self._intervalId = window.setInterval(function () {
-                self._checkCircleChanges();
-            }, 500);
+            // Start polling for circle changes so we can update dropdown options
+            H5PEditor.DiagramEditorUtils.startPolling(
+                self,
+                '_intervalId',
+                function () {
+                    self._checkCircleChanges();
+                },
+                500
+            );
         };
 
+        /**
+         * Ensure each circle has a stable internal ID, used by the selects.
+         *
+         * @private
+         */
         this._ensureCircleIds = function () {
-            const root = self._root || H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+            const root = self._root || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
 
             if (!root || !root.params || !Array.isArray(root.params.euler)) {
                 return;
@@ -198,37 +338,46 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         };
 
         /**
-         * Get current list of Euler circles from root params
+         * Get current list of Euler circles from root params.
+         *
+         * @returns {Array}
+         * @private
          */
         this._getCircles = function () {
-            const root = self._root || H5PEditor.findLibraryAncestor(self.parent) || self.parent;
+            const root = self._root || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
+
             const circles = (root.params && root.params.euler) || [];
             self._ensureCircleIds();
             return circles;
         };
 
         /**
-         * Check if circle definitions (labels, etc.) changed.
-         * If yes, re-render to update dropdown options.
+         * Check if circle definitions changed.
+         * If yes, re-render so dropdown labels stay in sync.
+         *
+         * @private
          */
         this._checkCircleChanges = function () {
             const circles = self._getCircles();
 
-            // Only need a lightweight signature; labels are enough
+            // Only need a lightweight signature; labels / size / color are enough
             const signature = JSON.stringify(
-                circles.map((c) => ({
-                    label: c.label || '',
-                    size: Number(c.size) || 0,
-                    color: c.color || '',
+                circles.map((circle) => ({
+                    label: circle.label || '',
+                    size: Number(circle.size) || 0,
+                    color: circle.color || '',
                 }))
             );
 
             if (signature !== self._lastCirclesSignature) {
                 self._lastCirclesSignature = signature;
-                self.render(); // re-render dropdowns with new labels
+                self.render();
             }
         };
 
+        /**
+         * Render all intersections and UI controls.
+         */
         this.render = function () {
             self.$container.empty();
 
@@ -237,7 +386,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.params = [];
             }
 
-            // Description
+            // Description text from semantics
             if (self.field.description) {
                 $('<div>', {
                     class: 'h5peditor-field-description',
@@ -264,11 +413,19 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 });
         };
 
+        /**
+         * Render a single intersection row including circles, label, and size.
+         *
+         * @param {object} intersection
+         * @param {number} index
+         */
         this.renderIntersectionRow = function (intersection, index) {
-            const $row = $('<div>', { class: 'h5p-diagram-editor-intersection-row' }).appendTo(self.$container);
+            const $row = $('<div>', {
+                class: 'h5p-diagram-editor-intersection-row',
+            }).appendTo(self.$container);
 
             const fields = self.field.fields;
-            const circleSetsField = fields.find(f => f.name == 'sets') || {};
+            const circleSetsField = fields.find((field) => field.name === 'sets') || {};
 
             if (circleSetsField.description) {
                 $('<div>', {
@@ -277,11 +434,10 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 }).appendTo($row);
             }
 
-            // Circles dropdowns (min 2)
+            // Circles dropdowns (ensure at least 2 entries)
             const sets = Array.isArray(intersection.sets) ? intersection.sets : [];
 
             if (sets.length < 2) {
-                // ensure at least 2 entries
                 sets.push({ circleIndex: 1 }, { circleIndex: 2 });
             }
 
@@ -291,7 +447,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.renderCircleSelect($row, intersection, index, setIdx);
             });
 
-            // "Add circle" button (optional 3rd or 4th)
+            // "Add circle" button (optional 3rd or 4th circle)
             if (sets.length < 4) {
                 $('<button>', {
                     type: 'button',
@@ -307,7 +463,10 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             }
 
             // Label input
-            const labelField = $('<div>', { class: 'field field-name-label text' }).appendTo($row);
+            const labelField = $('<div>', {
+                class: 'field field-name-label text',
+            }).appendTo($row);
+
             const labelLabel = $('<label>', {
                 class: 'h5peditor-label-wrapper',
                 for: 'field-diagram-label-' + index,
@@ -318,7 +477,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 text: 'Label',
             }).appendTo(labelLabel);
 
-            const labelSemantic = fields.find(f => f.name == 'label') || {};
+            const labelSemantic = fields.find((field) => field.name === 'label') || {};
 
             if (labelSemantic.description) {
                 $('<div>', {
@@ -340,7 +499,10 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             });
 
             // Size input
-            const sizeField = $('<div>', { class: 'field field-name-size number' }).appendTo($row);
+            const sizeField = $('<div>', {
+                class: 'field field-name-size number',
+            }).appendTo($row);
+
             const sizeLabel = $('<label>', {
                 class: 'h5peditor-label-wrapper',
                 for: 'field-diagram-size-' + index,
@@ -351,7 +513,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 text: 'Size',
             }).appendTo(sizeLabel);
 
-            const sizeSemantic = fields.find(f => f.name == 'size') || {};
+            const sizeSemantic = fields.find((field) => field.name === 'size') || {};
 
             if (sizeSemantic.description) {
                 $('<div>', {
@@ -382,7 +544,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self.save();
             });
 
-            // Remove intersection
+            // Remove intersection button
             $('<button>', {
                 type: 'button',
                 class: 'h5peditor-button h5p-diagram-editor-remove-intersection',
@@ -396,10 +558,21 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 });
         };
 
+        /**
+         * Render a single circle dropdown for an intersection.
+         *
+         * @param {H5P.jQuery} $row
+         * @param {object} intersection
+         * @param {number} intersectionIndex
+         * @param {number} setIndex
+         */
         this.renderCircleSelect = function ($row, intersection, intersectionIndex, setIndex) {
             const ref = intersection.sets[setIndex];
 
-            const field = $('<div>', { class: 'field h5p-diagram-editor-circle-field select' }).appendTo($row);
+            const field = $('<div>', {
+                class: 'field h5p-diagram-editor-circle-field select',
+            }).appendTo($row);
+
             const $select = $('<select>', {
                 class: 'h5peditor-select h5p-diagram-editor-circle-select',
                 id: 'field-diagram-select-' + intersectionIndex + '-' + setIndex,
@@ -408,15 +581,16 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             // Build options from current circles
             const circles = self._getCircles();
 
-            circles.forEach(function (circle, i) {
-                const label = (circle.label || 'Circle ' + (i + 1)).trim();
+            circles.forEach(function (circle, index) {
+                const label = (circle.label || 'Circle ' + (index + 1)).trim();
+
                 $('<option>', {
                     value: circle._id,
-                    text: label || 'Circle ' + (i + 1),
+                    text: label || 'Circle ' + (index + 1),
                 }).appendTo($select);
             });
 
-            // Determine current value:
+            // Determine current value
             let currentId = ref.circleId || null;
 
             if (!currentId && typeof ref.circleIndex === 'number' && circles[ref.circleIndex - 1]) {
@@ -441,7 +615,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 ref.circleId = id;
 
                 // Also keep a numeric index for backward compatibility
-                const idx = circles.findIndex((c) => c._id === id);
+                const idx = circles.findIndex((circle) => circle._id === id);
                 if (idx >= 0) {
                     ref.circleIndex = idx + 1;
                 }
@@ -465,19 +639,31 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             }
         };
 
+        /**
+         * Persist the current intersection configuration to the parent.
+         */
         this.save = function () {
             self.setValue(self.field, self.params);
         };
 
+        /**
+         * Validation hook required by the H5P editor widget interface.
+         *
+         * Intersections are optional and controlled by semantics and preview.
+         *
+         * @returns {boolean}
+         */
         this.validate = function () {
             return true;
         };
 
+        /**
+         * Clean up when the widget is removed from the editor.
+         *
+         * Stops polling and removes the DOM container.
+         */
         this.remove = function () {
-            if (self._intervalId) {
-                window.clearInterval(self._intervalId);
-                self._intervalId = null;
-            }
+            H5PEditor.DiagramEditorUtils.stopPolling(self, '_intervalId');
             self.$container.remove();
         };
     }
