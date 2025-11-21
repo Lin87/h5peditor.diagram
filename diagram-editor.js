@@ -62,6 +62,58 @@
                 context[propertyName] = null;
             }
         },
+
+        /**
+         * Simple debounce utility for editor-side use.
+         *
+         * @param {Function} fn
+         * @param {number} delay
+         * @returns {Function}
+         */
+        debounce(fn, delay) {
+            let timeout = null;
+
+            function debounced(...args) {
+                if (timeout) {
+                    clearTimeout(timeout);
+                }
+                timeout = setTimeout(() => fn.apply(this, args), delay);
+            }
+
+            debounced.cancel = function () {
+                if (timeout) {
+                    clearTimeout(timeout);
+                    timeout = null;
+                }
+            };
+
+            return debounced;
+        },
+
+        /**
+         * Remove editor-only helper properties from a list of intersections.
+         *
+         * Currently clears `circleId` from each circle reference.
+         *
+         * @param {Array} intersections
+         */
+        cleanIntersectionCircleIds(intersections) {
+            if (!Array.isArray(intersections)) {
+                return;
+            }
+
+            intersections.forEach((intersection) => {
+                if (!intersection || !Array.isArray(intersection.sets)) {
+                    return;
+                }
+
+                intersection.sets.forEach((ref) => {
+                    if (ref && typeof ref === 'object') {
+                        delete ref.circleId;
+                    }
+                });
+            });
+        },
     };
 })(H5P.jQuery);
 
@@ -126,6 +178,16 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         };
 
         /**
+         * Debounced wrapper around renderPreview to avoid excessive redraws.
+         *
+         * @private
+         */
+        this._debouncedRender = H5PEditor.DiagramEditorUtils.debounce(
+            (rootParent) => self.renderPreview(rootParent),
+            250 // milliseconds; feels responsive
+        );
+
+        /**
          * Check if the root params changed; if so, re-render the preview.
          *
          * @param {object} libraryParent
@@ -143,7 +205,7 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
 
             if (serialized !== self._lastSerializedParams) {
                 self._lastSerializedParams = serialized;
-                self.renderPreview(rootParent);
+                self._debouncedRender(rootParent);
             }
         };
 
@@ -220,6 +282,11 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
         this.remove = function () {
             H5PEditor.DiagramEditorUtils.stopPolling(self, '_intervalId');
 
+            // Cancel any pending debounced render
+            if (self._debouncedRender && self._debouncedRender.cancel) {
+                self._debouncedRender.cancel();
+            }
+
             if (self.$preview) {
                 self.$preview.remove();
             }
@@ -261,19 +328,8 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
                 intersectionList = params.intersections.intersections;
             }
 
-            if (intersectionList) {
-                intersectionList.forEach((intersection) => {
-                    if (!intersection || !Array.isArray(intersection.sets)) {
-                        return;
-                    }
+            H5PEditor.DiagramEditorUtils.cleanIntersectionCircleIds(intersectionList);
 
-                    intersection.sets.forEach((ref) => {
-                        if (ref && typeof ref === 'object') {
-                            delete ref.circleId;
-                        }
-                    });
-                });
-            }
             // Clear unused config to avoid storing stale settings
             if (type === 'euler') {
                 delete params.pyramid;
@@ -686,20 +742,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
          * @returns {boolean}
          */
         this.validate = function () {
-            if (Array.isArray(self.params)) {
-                self.params.forEach((intersection) => {
-                    if (!intersection || !Array.isArray(intersection.sets)) {
-                        return;
-                    }
-
-                    intersection.sets.forEach((ref) => {
-                        if (ref && typeof ref === 'object') {
-                            delete ref.circleId;
-                        }
-                    });
-                });
-            }
-
+            H5PEditor.DiagramEditorUtils.cleanIntersectionCircleIds(self.params);
             return true;
         };
 
