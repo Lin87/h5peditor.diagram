@@ -1,6 +1,12 @@
 {
     "title": "Diagram Editor",
-    "description": "A H5P Editor enhancement to include various functionalities to edit diagrams that can be made with the H5P Diagram content type.",
+    "description": "Provides editor widgets for the H5P Diagram content type, including live preview and tools for configuring Euler intersections and pyramid steps.",
+    "metadata": {
+        "additionalDescriptions": [
+            "This editor library adds user-friendly controls for configuring diagrams in the H5P authoring interface. It includes a live preview that updates automatically and specialized widgets for managing Euler intersections and pyramid settings.",
+            "The editor widgets help authors build diagrams quickly and accurately by reflecting changes in real time, ensuring the final diagram renders exactly as expected during learner playback."
+        ]
+    },
     "machineName": "H5PEditor.Diagram",
     "majorVersion": 1,
     "minorVersion": 0,

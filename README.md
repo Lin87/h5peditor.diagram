@@ -1,7 +1,43 @@
-# H5P Diagram Editor
+# H5PEditor.Diagram
 
-A H5P Editor enhancement to include various functionalities to edit diagrams that
-can be made with the [H5P Diagram](https://github.com/Lin87/h5p.diagram) content type.
+Editor widgets used by the **H5P Diagram** content type.
+
+This library contains the editor-side interface that helps authors configure Euler and Pyramid diagrams inside the H5P authoring tool. It does not run during learner playback; it exists only to improve authoring workflow and provide real-time feedback.
+
+## Features
+
+### Live Preview
+
+A built-in preview automatically renders the diagram as authors update labels, colors, steps, and intersections.  
+The preview updates every few hundred milliseconds to reflect changes immediately.
+
+### Euler Intersections Editor
+
+The custom intersections widget makes it easier to define which circles overlap and how large each intersection should be. It includes:
+
+- Circle selection dropdowns  
+- Dynamic updates when circles change  
+- Optional labels and size values  
+- Add/remove buttons with validation  
+
+### Shared Utilities
+
+The editor library includes a small utility module that:
+
+- Locates the root content parent in the editor tree  
+- Handles polling and cleanup  
+- Supports stable IDs for Euler circles  
+
+These utilities help keep the editor widgets cleaner and more consistent.
+
+## Relationship to the Main Library
+
+`H5PEditor.Diagram` is the editor companion to:
+
+**H5P.Diagram**  
+(Used during learner playback)
+
+While the main library draws diagrams, the editor library provides the UI controls needed to configure them.
 
 ## License
 
