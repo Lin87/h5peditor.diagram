@@ -242,6 +242,38 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
             const params = root.params;
             const type = params.diagramType || 'euler';
 
+            // Remove editor-only helper properties from circles
+            if (Array.isArray(params.euler)) {
+                params.euler.forEach((circle) => {
+                    if (circle && typeof circle === 'object') {
+                        delete circle._id;
+                    }
+                });
+            }
+
+            // Remove editor-only helper properties from intersections
+            // Handle both flat array and nested { intersections: [] } just in case
+            let intersectionList = null;
+
+            if (Array.isArray(params.intersections)) {
+                intersectionList = params.intersections;
+            } else if (params.intersections && Array.isArray(params.intersections.intersections)) {
+                intersectionList = params.intersections.intersections;
+            }
+
+            if (intersectionList) {
+                intersectionList.forEach((intersection) => {
+                    if (!intersection || !Array.isArray(intersection.sets)) {
+                        return;
+                    }
+
+                    intersection.sets.forEach((ref) => {
+                        if (ref && typeof ref === 'object') {
+                            delete ref.circleId;
+                        }
+                    });
+                });
+            }
             // Clear unused config to avoid storing stale settings
             if (type === 'euler') {
                 delete params.pyramid;
@@ -649,11 +681,25 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         /**
          * Validation hook required by the H5P editor widget interface.
          *
-         * Intersections are optional and controlled by semantics and preview.
+         * Cleans editor-only helper properties from intersection data.
          *
          * @returns {boolean}
          */
         this.validate = function () {
+            if (Array.isArray(self.params)) {
+                self.params.forEach((intersection) => {
+                    if (!intersection || !Array.isArray(intersection.sets)) {
+                        return;
+                    }
+
+                    intersection.sets.forEach((ref) => {
+                        if (ref && typeof ref === 'object') {
+                            delete ref.circleId;
+                        }
+                    });
+                });
+            }
+
             return true;
         };
 
