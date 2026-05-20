@@ -339,6 +339,19 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
                 delete params.intersections;
             }
 
+            // Persist the current preview markup for stable learner playback.
+            // Incomplete states are saved as-is to mirror what the author sees.
+            const previewContainer = self.$preview && self.$preview[0];
+
+            if (previewContainer) {
+                if (!params.preview || typeof params.preview !== 'object') {
+                    params.preview = {};
+                }
+
+                params.preview.savedMarkup = previewContainer.innerHTML || '';
+                params.preview.savedDiagramType = type;
+            }
+
             return true;
         };
     }
