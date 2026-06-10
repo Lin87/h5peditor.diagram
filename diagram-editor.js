@@ -261,12 +261,24 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
             const params = (rootParent && rootParent.params) || {};
             const previewPlaceholder = '<p class="h5p-diagram-editor-preview-placeholder">' + '<em>A preview of the diagram will be displayed here once data is available.</em>' + '</p>';
 
-            if (params.diagramType === 'euler' && (!params.euler || params.euler.length <= 1)) {
+            const eulerCircles = params.euler && Array.isArray(params.euler.circles)
+                ? params.euler.circles
+                : Array.isArray(params.euler)
+                    ? params.euler
+                    : [];
+
+            const pyramidSteps = params.pyramid && Array.isArray(params.pyramid.steps)
+                ? params.pyramid.steps
+                : Array.isArray(params.pyramid)
+                    ? params.pyramid
+                    : [];
+
+            if (params.diagramType === 'euler' && eulerCircles.length < 2) {
                 container.innerHTML = previewPlaceholder;
                 return false;
             }
 
-            if (params.diagramType === 'pyramid' && (!params.pyramid || params.pyramid.length <= 1)) {
+            if (params.diagramType === 'pyramid' && pyramidSteps.length < 1) {
                 container.innerHTML = previewPlaceholder;
                 return false;
             }
@@ -310,13 +322,17 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
             const type = params.diagramType || 'euler';
 
             // Remove editor-only helper properties from circles
-            if (Array.isArray(params.euler)) {
-                params.euler.forEach((circle) => {
-                    if (circle && typeof circle === 'object') {
-                        delete circle._id;
-                    }
-                });
-            }
+            const eulerCircles = params.euler && Array.isArray(params.euler.circles)
+                ? params.euler.circles
+                : Array.isArray(params.euler)
+                    ? params.euler
+                    : [];
+
+            eulerCircles.forEach((circle) => {
+                if (circle && typeof circle === 'object') {
+                    delete circle._id;
+                }
+            });
 
             // Remove editor-only helper properties from intersections
             // Handle both flat array and nested { intersections: [] } just in case
@@ -420,25 +436,6 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         };
 
         /**
-         * Ensure each circle has a stable internal ID, used by the selects.
-         *
-         * @private
-         */
-        this._ensureCircleIds = function () {
-            const root = self._root || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
-
-            if (!root || !root.params || !Array.isArray(root.params.euler)) {
-                return;
-            }
-
-            root.params.euler.forEach((circle) => {
-                if (!circle._id) {
-                    circle._id = 'circle-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
-                }
-            });
-        };
-
-        /**
          * Get current list of Euler circles from root params.
          *
          * @returns {Array}
@@ -446,10 +443,19 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
          */
         this._getCircles = function () {
             const root = self._root || H5PEditor.DiagramEditorUtils.getRootParent(self.parent);
+            const params = (root && root.params) || {};
+            const euler = params.euler || {};
 
-            const circles = (root.params && root.params.euler) || [];
-            self._ensureCircleIds();
-            return circles;
+            if (Array.isArray(euler.circles)) {
+                return euler.circles;
+            }
+
+            // Backward compatibility with older params shape, if any.
+            if (Array.isArray(euler)) {
+                return euler;
+            }
+
+            return [];
         };
 
         /**
@@ -474,6 +480,88 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 self._lastCirclesSignature = signature;
                 self.render();
             }
+        };
+
+        /**
+         * Normalize one intersection's circle refs.
+         *
+         * Ensures:
+         * - refs use circleIndex only
+         * - circleIndex is within available circles
+         * - duplicate circleIndex values are removed
+         * - at least 2 refs exist when possible
+         *
+         * @param {object} intersection
+         * @returns {object}
+         * @private
+         */
+        this._normalizeIntersectionSets = function (intersection) {
+            const circles = self._getCircles();
+            const circleCount = circles.length;
+
+            if (!intersection || typeof intersection !== 'object') {
+                intersection = {};
+            }
+
+            const rawSets = Array.isArray(intersection.sets) ? intersection.sets : [];
+            const normalizedSets = [];
+            const usedIndexes = {};
+
+            rawSets.forEach(function (ref) {
+                let circleIndex;
+
+                // Support old/simple shape: sets: [1, 2]
+                if (typeof ref === 'number' || typeof ref === 'string') {
+                    circleIndex = Number(ref);
+                }
+                // Support new semantics shape: sets: [{ circleIndex: 1 }, { circleIndex: 2 }]
+                else if (ref && typeof ref === 'object') {
+                    circleIndex = Number(ref.circleIndex);
+                } else {
+                    return;
+                }
+
+                if (!Number.isFinite(circleIndex)) {
+                    return;
+                }
+
+                circleIndex = Math.floor(circleIndex);
+
+                if (circleCount > 0) {
+                    circleIndex = Math.max(1, Math.min(circleIndex, circleCount));
+                } else {
+                    return;
+                }
+
+                if (usedIndexes[circleIndex]) {
+                    return;
+                }
+
+                usedIndexes[circleIndex] = true;
+                normalizedSets.push(circleIndex);
+            });
+
+            if (circleCount === 0) {
+                intersection.sets = [];
+                return intersection;
+            }
+
+            const targetLength = Math.min(2, circleCount);
+
+            for (let i = 1; normalizedSets.length < targetLength; i++) {
+                if (!usedIndexes[i]) {
+                    usedIndexes[i] = true;
+                    normalizedSets.push(i);
+                }
+
+                if (i > Math.max(circleCount, 2)) {
+                    break;
+                }
+            }
+
+            intersection.sets = normalizedSets;
+
+            return intersection;
         };
 
         /**
@@ -525,7 +613,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 class: 'h5p-diagram-editor-intersection-row',
             }).appendTo(self.$container);
 
-            const fields = self.field.fields;
+            const itemField = self.field.field || self.field;
+            const fields = itemField.fields || [];
             const circleSetsField = fields.find((field) => field.name === 'sets') || {};
 
             if (circleSetsField.description) {
@@ -535,21 +624,16 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 }).appendTo($row);
             }
 
-            // Circles dropdowns (ensure at least 2 entries)
-            const sets = Array.isArray(intersection.sets) ? intersection.sets : [];
+            // Circles dropdowns
+            self._normalizeIntersectionSets(intersection);
 
-            if (sets.length < 2) {
-                sets.push({ circleIndex: 1 }, { circleIndex: 2 });
-            }
-
-            intersection.sets = sets;
-
-            sets.forEach(function (ref, setIdx) {
+            intersection.sets.forEach(function (ref, setIdx) {
                 self.renderCircleSelect($row, intersection, index, setIdx);
             });
 
             // "Add circle" button (optional 3rd or 4th circle)
-            if (sets.length < 4) {
+            const circles = self._getCircles();
+            if (intersection.sets.length < 4 && intersection.sets.length < circles.length) {
                 $('<button>', {
                     type: 'button',
                     class: 'h5peditor-button h5peditor-button-textual h5p-diagram-editor-add-circle',
@@ -557,7 +641,24 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 })
                     .appendTo($row)
                     .on('click', function () {
-                        intersection.sets.push({ circleIndex: 1 });
+                        const usedIndexes = intersection.sets
+                            .map((ref) => typeof ref === 'object' ? Number(ref.circleIndex) : Number(ref))
+                            .filter((index) => index >= 1);
+
+                        let nextIndex = 1;
+
+                        for (let i = 1; i <= circles.length; i++) {
+                            if (!usedIndexes.includes(i)) {
+                                nextIndex = i;
+                                break;
+                            }
+                        }
+
+                        intersection.sets.push({
+                            circleIndex: nextIndex
+                        });
+
+                        self._normalizeIntersectionSets(intersection);
                         self.save();
                         self.render();
                     });
@@ -679,52 +780,36 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 id: 'field-diagram-select-' + intersectionIndex + '-' + setIndex,
             }).appendTo(field);
 
-            // Build options from current circles
             const circles = self._getCircles();
 
             circles.forEach(function (circle, index) {
-                const label = (circle.label || 'Circle ' + (index + 1)).trim();
+                const circleIndex = index + 1;
+                const label = (circle.label || 'Circle ' + circleIndex).trim();
 
                 $('<option>', {
-                    value: circle._id,
-                    text: label || 'Circle ' + (index + 1),
+                    value: String(circleIndex),
+                    text: label || 'Circle ' + circleIndex,
                 }).appendTo($select);
             });
 
-            // Determine current value
-            let currentId = ref.circleId || null;
+            let currentIndex = typeof ref === 'object'
+                ? Number(ref.circleIndex)
+                : Number(ref);
 
-            if (!currentId && typeof ref.circleIndex === 'number' && circles[ref.circleIndex - 1]) {
-                currentId = circles[ref.circleIndex - 1]._id;
+            if (!currentIndex || currentIndex < 1 || currentIndex > circles.length) {
+                currentIndex = Math.min(setIndex + 1, circles.length || 1);
+                ref.circleIndex = currentIndex;
             }
 
-            if (!currentId && circles[0]) {
-                currentId = circles[0]._id;
-            }
-
-            // Ensure we store circleId for future stability
-            if (!ref.circleId && currentId) {
-                ref.circleId = currentId;
-            }
-
-            if (currentId) {
-                $select.val(currentId);
-            }
+            $select.val(String(currentIndex));
 
             $select.on('change', function () {
-                const id = this.value;
-                ref.circleId = id;
-
-                // Keep circleIndex in sync with the selected circle so runtime can resolve it
-                const idx = circles.findIndex((circle) => circle._id === id);
-                if (idx >= 0) {
-                    ref.circleIndex = idx + 1;
-                }
+                intersection.sets[setIndex] = Number(this.value);
 
                 self.save();
+                self.render();
             });
 
-            // Optional "remove circle" button (but keep at least 2)
             if (intersection.sets.length > 2) {
                 $('<button>', {
                     type: 'button',
@@ -744,6 +829,12 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
          * Persist the current intersection configuration to the parent.
          */
         this.save = function () {
+            if (Array.isArray(self.params)) {
+                self.params.forEach(function (intersection) {
+                    self._normalizeIntersectionSets(intersection);
+                });
+            }
+
             self.setValue(self.field, self.params);
         };
 
@@ -755,7 +846,14 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
          * @returns {boolean}
          */
         this.validate = function () {
+            if (Array.isArray(self.params)) {
+                self.params.forEach(function (intersection) {
+                    self._normalizeIntersectionSets(intersection);
+                });
+            }
+
             H5PEditor.DiagramEditorUtils.cleanIntersectionCircleIds(self.params);
+
             return true;
         };
 
