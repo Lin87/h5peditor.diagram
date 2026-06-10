@@ -642,6 +642,169 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         };
 
         /**
+         * Convert a stored circle reference to a 1-based circle index.
+         *
+         * @param {number|string|object} ref
+         * @returns {number|null}
+         * @private
+         */
+        this._getCircleIndex = function (ref) {
+            const rawIndex = ref && typeof ref === 'object'
+                ? Number(ref.circleIndex)
+                : Number(ref);
+
+            if (!Number.isFinite(rawIndex)) {
+                return null;
+            }
+
+            return Math.floor(rawIndex);
+        };
+
+        /**
+         * Get the selected 1-based circle indexes for an intersection.
+         *
+         * @param {object} intersection
+         * @returns {number[]}
+         * @private
+         */
+        this._getIntersectionCircleIndexes = function (intersection) {
+            if (!intersection || !Array.isArray(intersection.sets)) {
+                return [];
+            }
+
+            return intersection.sets
+                .map((ref) => self._getCircleIndex(ref))
+                .filter((circleIndex) => circleIndex !== null);
+        };
+
+        /**
+         * Return a readable circle label for warning messages.
+         *
+         * @param {number} circleIndex 1-based circle index
+         * @returns {string}
+         * @private
+         */
+        this._getCircleLabel = function (circleIndex) {
+            const circles = self._getCircles();
+            const circle = circles[circleIndex - 1] || {};
+            const label = (circle.label || '').trim();
+
+            return label || 'Circle ' + circleIndex;
+        };
+
+        /**
+         * Create a stable key for a pair of 1-based circle indexes.
+         *
+         * @param {number} firstIndex
+         * @param {number} secondIndex
+         * @returns {string}
+         * @private
+         */
+        this._getPairKey = function (firstIndex, secondIndex) {
+            return [firstIndex, secondIndex].sort((a, b) => a - b).join(':');
+        };
+
+        /**
+         * Find missing or undersized pairwise overlaps for a multi-circle intersection.
+         *
+         * @param {object} intersection
+         * @param {number} intersectionIndex
+         * @returns {object|null}
+         * @private
+         */
+        this._getIntersectionWarning = function (intersection, intersectionIndex) {
+            const selectedIndexes = self._getIntersectionCircleIndexes(intersection);
+
+            if (selectedIndexes.length <= 2) {
+                return null;
+            }
+
+            const intersectionSize = Number(intersection.size) || 0;
+
+            const pairSizes = {};
+
+            self.params.forEach(function (candidate, candidateIndex) {
+                if (candidateIndex === intersectionIndex) {
+                    return;
+                }
+
+                const candidateIndexes = self._getIntersectionCircleIndexes(candidate);
+
+                if (candidateIndexes.length !== 2) {
+                    return;
+                }
+
+                const key = self._getPairKey(candidateIndexes[0], candidateIndexes[1]);
+                const size = Number(candidate.size) || 0;
+                pairSizes[key] = Math.max(pairSizes[key] || 0, size);
+            });
+
+            const missingPairs = [];
+            const undersizedPairs = [];
+
+            for (let first = 0; first < selectedIndexes.length; first++) {
+                for (let second = first + 1; second < selectedIndexes.length; second++) {
+                    const firstIndex = selectedIndexes[first];
+                    const secondIndex = selectedIndexes[second];
+                    const key = self._getPairKey(firstIndex, secondIndex);
+                    const pairLabel = self._getCircleLabel(firstIndex) + ' + ' + self._getCircleLabel(secondIndex);
+                    const pairSize = pairSizes[key] || 0;
+
+                    if (pairSize <= 0) {
+                        missingPairs.push(pairLabel);
+                    } else if (intersectionSize > 0 && pairSize < intersectionSize) {
+                        undersizedPairs.push(pairLabel);
+                    }
+                }
+            }
+
+            if (!missingPairs.length && !undersizedPairs.length) {
+                return null;
+            }
+
+            return {
+                missingPairs,
+                undersizedPairs,
+                intersectionSize,
+            };
+        };
+
+        /**
+         * Render a non-blocking warning for multi-circle intersections that cannot draw.
+         *
+         * @param {H5P.jQuery} $row
+         * @param {object} intersection
+         * @param {number} intersectionIndex
+         * @private
+         */
+        this._renderIntersectionWarning = function ($row, intersection, intersectionIndex) {
+            const warning = self._getIntersectionWarning(intersection, intersectionIndex);
+
+            if (!warning) {
+                return;
+            }
+
+            const messages = [];
+
+            if (warning.missingPairs.length) {
+                messages.push('Add pairwise intersections for: ' + warning.missingPairs.join(', ') + '.');
+            }
+
+            if (warning.undersizedPairs.length) {
+                messages.push('Increase these pairwise sizes to at least ' + warning.intersectionSize + ': ' + warning.undersizedPairs.join(', ') + '.');
+            }
+
+            if (!messages.length) {
+                return;
+            }
+
+            $('<div>', {
+                class: 'h5p-diagram-editor-intersection-warning',
+                text: 'Multi-circle intersections need matching pairwise overlaps to render. ' + messages.join(' '),
+            }).appendTo($row);
+        };
+
+        /**
          * Render all intersections and UI controls.
          */
         this.render = function () {
@@ -741,6 +904,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                     });
             }
 
+            self._renderIntersectionWarning($row, intersection, index);
+
             // Label input
             const labelField = $('<div>', {
                 class: 'field field-name-label text',
@@ -821,6 +986,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
                 intersection.size = size || 0;
                 self.save();
+                self.render();
             });
 
             // Remove intersection button

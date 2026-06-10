@@ -48,6 +48,16 @@
     margin: 0;
 }
 
+.h5p-diagram-editor-intersection-warning {
+    margin: 0.75em 0 0;
+    padding: 0.75em 1em;
+    border-left: 4px solid #f2a900;
+    background-color: #fff8e1;
+    color: #3a3a3a;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
 .h5p-diagram-editor-remove-circle {
     margin: 0 0.5em 0 -0.5em;
     border: none;
