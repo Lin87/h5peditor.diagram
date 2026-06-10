@@ -91,6 +91,67 @@
         },
 
         /**
+         * Return only author-facing params used to render the diagram.
+         *
+         * @param {object} params
+         * @returns {object}
+         */
+        getCacheRelevantParams(params) {
+            const sourceParams = params || {};
+            const relevantParams = {};
+
+            Object.keys(sourceParams).forEach((key) => {
+                if (key !== 'preview') {
+                    relevantParams[key] = sourceParams[key];
+                }
+            });
+
+            return relevantParams;
+        },
+
+        /**
+         * Stringify values with stable object key ordering.
+         *
+         * @param {*} value
+         * @returns {string}
+         */
+        stableStringify(value) {
+            if (Array.isArray(value)) {
+                return '[' + value.map((item) => H5PEditor.DiagramEditorUtils.stableStringify(item)).join(',') + ']';
+            }
+
+            if (value && typeof value === 'object') {
+                return '{' + Object.keys(value)
+                    .filter((key) => typeof value[key] !== 'undefined' && typeof value[key] !== 'function')
+                    .sort()
+                    .map((key) => JSON.stringify(key) + ':' + H5PEditor.DiagramEditorUtils.stableStringify(value[key]))
+                    .join(',') + '}';
+            }
+
+            return JSON.stringify(typeof value === 'undefined' ? null : value);
+        },
+
+        /**
+         * Build a compact deterministic signature for render-relevant params.
+         *
+         * @param {object} params
+         * @returns {string}
+         */
+        getParamsHash(params) {
+            const serializedParams = H5PEditor.DiagramEditorUtils.stableStringify(
+                H5PEditor.DiagramEditorUtils.getCacheRelevantParams(params)
+            );
+            let hash = 2166136261;
+
+            for (let i = 0; i < serializedParams.length; i++) {
+                hash ^= serializedParams.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+
+            return ('00000000' + (hash >>> 0).toString(16)).slice(-8);
+        },
+
+        /**
          * Remove editor-only helper properties from a list of intersections.
          *
          * Currently clears `circleId` from each circle reference.
@@ -355,8 +416,14 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
                 delete params.intersections;
             }
 
+            if (self._debouncedRender && self._debouncedRender.cancel) {
+                self._debouncedRender.cancel();
+            }
+
+            self.renderPreview(root);
+
             // Persist the current preview markup for stable learner playback.
-            // Incomplete states are saved as-is to mirror what the author sees.
+            // Only real SVG output is cached; editor placeholders/errors are not.
             const previewContainer = self.$preview && self.$preview[0];
 
             if (previewContainer) {
@@ -364,8 +431,18 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
                     params.preview = {};
                 }
 
-                params.preview.savedMarkup = previewContainer.innerHTML || '';
-                params.preview.savedDiagramType = type;
+                const hasEditorOnlyMarkup = !!previewContainer.querySelector('.h5p-diagram-editor-preview-placeholder, .h5p-diagram-editor-preview-error');
+                const hasDiagramSvg = !!previewContainer.querySelector('.h5p-diagram-figure svg');
+
+                if (hasDiagramSvg && !hasEditorOnlyMarkup) {
+                    params.preview.savedMarkup = previewContainer.innerHTML || '';
+                    params.preview.savedDiagramType = type;
+                    params.preview.savedParamsHash = H5PEditor.DiagramEditorUtils.getParamsHash(params);
+                } else {
+                    delete params.preview.savedMarkup;
+                    delete params.preview.savedDiagramType;
+                    delete params.preview.savedParamsHash;
+                }
             }
 
             return true;
