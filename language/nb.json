@@ -1,0 +1,15 @@
+{
+  "libraryStrings": {
+    "previewNotAvailable": "Forhåndsvisning er ikke tilgjengelig (diagrambiblioteket er ikke lastet).",
+    "previewPlaceholder": "En forhåndsvisning av diagrammet vises her når data er tilgjengelig.",
+    "addIntersection": "Legg til skjæringspunkt",
+    "addCircle": "Legg til sirkel",
+    "remove": "Fjern",
+    "label": "Etikett",
+    "size": "Størrelse",
+    "circleLabel": "Sirkel :index",
+    "addPairwiseIntersections": "Legg til parvise skjæringspunkter for: :pairs.",
+    "increasePairwiseSizes": "Øk disse parvise størrelsene til minst :size: :pairs.",
+    "multiCircleIntersectionWarning": "Skjæringspunkter med flere sirkler trenger samsvarende parvise overlapp for å kunne tegnes. :details"
+  }
+}

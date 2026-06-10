@@ -16,7 +16,64 @@
  *  - Starting / stopping simple polling timers
  */
 (function ($) {
+    const DIAGRAM_EDITOR_LIBRARY = 'H5PEditor.Diagram';
+    const ENGLISH_STRINGS = {
+        previewNotAvailable: 'Preview not available (diagram library not loaded).',
+        previewPlaceholder: 'A preview of the diagram will be displayed here once data is available.',
+        addIntersection: 'Add intersection',
+        addCircle: 'Add circle',
+        remove: 'Remove',
+        label: 'Label',
+        size: 'Size',
+        circleLabel: 'Circle :index',
+        addPairwiseIntersections: 'Add pairwise intersections for: :pairs.',
+        increasePairwiseSizes: 'Increase these pairwise sizes to at least :size: :pairs.',
+        multiCircleIntersectionWarning: 'Multi-circle intersections need matching pairwise overlaps to render. :details',
+    };
+
+    /**
+     * Replace H5P-style placeholders in a fallback string.
+     *
+     * @param {string} text
+     * @param {object} [vars]
+     * @returns {string}
+     */
+    function replacePlaceholders(text, vars) {
+        let translatedText = text;
+
+        Object.keys(vars || {}).forEach((placeholder) => {
+            translatedText = translatedText.split(placeholder).join(vars[placeholder]);
+        });
+
+        return translatedText;
+    }
+
     H5PEditor.DiagramEditorUtils = H5PEditor.DiagramEditorUtils || {
+        /**
+         * Translate a custom Diagram editor widget string.
+         *
+         * @param {string} key
+         * @param {object} [vars]
+         * @returns {string}
+         */
+        t(key, vars) {
+            const fallback = ENGLISH_STRINGS[key] || key;
+
+            if (typeof H5PEditor.t === 'function') {
+                const translated = H5PEditor.t(DIAGRAM_EDITOR_LIBRARY, key, vars || {});
+
+                if (
+                    translated &&
+                    translated.indexOf('Missing translations for library ') !== 0 &&
+                    translated.indexOf('[Missing translation ') !== 0
+                ) {
+                    return translated;
+                }
+            }
+
+            return replacePlaceholders(fallback, vars);
+        },
+
         /**
          * Find the top-level library parent for a given editor widget.
          *
@@ -311,8 +368,22 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
                 return false;
             }
 
+            const getPreviewMessageMarkup = function (className, message) {
+                const messageElement = document.createElement('p');
+                const emphasisElement = document.createElement('em');
+
+                messageElement.className = className;
+                emphasisElement.textContent = message;
+                messageElement.appendChild(emphasisElement);
+
+                return messageElement.outerHTML;
+            };
+
             if (typeof H5P === 'undefined' || typeof H5P.Diagram !== 'function') {
-                container.innerHTML = '<p class="h5p-diagram-editor-preview-error">' + '<em>Preview not available (diagram library not loaded).</em>' + '</p>';
+                container.innerHTML = getPreviewMessageMarkup(
+                    'h5p-diagram-editor-preview-error',
+                    H5PEditor.DiagramEditorUtils.t('previewNotAvailable')
+                );
                 return false;
             }
 
@@ -320,7 +391,10 @@ H5PEditor.widgets.diagramPreview = H5PEditor.diagramPreview = (function ($) {
 
             const rootParent = libraryParent || self._rootParent || self.parent;
             const params = (rootParent && rootParent.params) || {};
-            const previewPlaceholder = '<p class="h5p-diagram-editor-preview-placeholder">' + '<em>A preview of the diagram will be displayed here once data is available.</em>' + '</p>';
+            const previewPlaceholder = getPreviewMessageMarkup(
+                'h5p-diagram-editor-preview-placeholder',
+                H5PEditor.DiagramEditorUtils.t('previewPlaceholder')
+            );
 
             const eulerCircles = params.euler && Array.isArray(params.euler.circles)
                 ? params.euler.circles
@@ -478,6 +552,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
         this.field = field;
         this.params = params || []; // List of intersections
         this.setValue = setValue;
+        this.t = H5PEditor.DiagramEditorUtils.t;
 
         this.$container = $('<div>', {
             class: 'h5p-diagram-editor-intersections-widget',
@@ -689,7 +764,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             const circle = circles[circleIndex - 1] || {};
             const label = (circle.label || '').trim();
 
-            return label || 'Circle ' + circleIndex;
+            return label || self.t('circleLabel', { ':index': String(circleIndex) });
         };
 
         /**
@@ -787,11 +862,14 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             const messages = [];
 
             if (warning.missingPairs.length) {
-                messages.push('Add pairwise intersections for: ' + warning.missingPairs.join(', ') + '.');
+                messages.push(self.t('addPairwiseIntersections', { ':pairs': warning.missingPairs.join(', ') }));
             }
 
             if (warning.undersizedPairs.length) {
-                messages.push('Increase these pairwise sizes to at least ' + warning.intersectionSize + ': ' + warning.undersizedPairs.join(', ') + '.');
+                messages.push(self.t('increasePairwiseSizes', {
+                    ':size': String(warning.intersectionSize),
+                    ':pairs': warning.undersizedPairs.join(', '),
+                }));
             }
 
             if (!messages.length) {
@@ -800,7 +878,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
             $('<div>', {
                 class: 'h5p-diagram-editor-intersection-warning',
-                text: 'Multi-circle intersections need matching pairwise overlaps to render. ' + messages.join(' '),
+                text: self.t('multiCircleIntersectionWarning', { ':details': messages.join(' ') }),
             }).appendTo($row);
         };
 
@@ -832,7 +910,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             $('<button>', {
                 type: 'button',
                 class: 'h5peditor-button h5peditor-button-textual h5p-diagram-editor-add-intersection',
-                text: 'Add intersection',
+                text: self.t('addIntersection'),
             })
                 .appendTo(self.$container)
                 .on('click', function () {
@@ -856,6 +934,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             const itemField = self.field.field || self.field;
             const fields = itemField.fields || [];
             const circleSetsField = fields.find((field) => field.name === 'sets') || {};
+            const labelSemantic = fields.find((field) => field.name === 'label') || {};
+            const sizeSemantic = fields.find((field) => field.name === 'size') || {};
 
             if (circleSetsField.description) {
                 $('<div>', {
@@ -877,7 +957,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 $('<button>', {
                     type: 'button',
                     class: 'h5peditor-button h5peditor-button-textual h5p-diagram-editor-add-circle',
-                    text: 'Add circle',
+                    text: self.t('addCircle'),
                 })
                     .appendTo($row)
                     .on('click', function () {
@@ -918,10 +998,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
             $('<span>', {
                 class: 'h5peditor-label',
-                text: 'Label',
+                text: labelSemantic.label || self.t('label'),
             }).appendTo(labelLabel);
-
-            const labelSemantic = fields.find((field) => field.name === 'label') || {};
 
             if (labelSemantic.description) {
                 $('<div>', {
@@ -954,10 +1032,8 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
             $('<span>', {
                 class: 'h5peditor-label',
-                text: 'Size',
+                text: sizeSemantic.label || self.t('size'),
             }).appendTo(sizeLabel);
-
-            const sizeSemantic = fields.find((field) => field.name === 'size') || {};
 
             if (sizeSemantic.description) {
                 $('<div>', {
@@ -993,7 +1069,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
             $('<button>', {
                 type: 'button',
                 class: 'h5peditor-button h5p-diagram-editor-remove-intersection',
-                'aria-label': 'Remove',
+                'aria-label': self.t('remove'),
             })
                 .appendTo($row)
                 .on('click', function () {
@@ -1027,11 +1103,12 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
 
             circles.forEach(function (circle, index) {
                 const circleIndex = index + 1;
-                const label = (circle.label || 'Circle ' + circleIndex).trim();
+                const fallbackLabel = self.t('circleLabel', { ':index': String(circleIndex) });
+                const label = (circle.label || fallbackLabel).trim();
 
                 $('<option>', {
                     value: String(circleIndex),
-                    text: label || 'Circle ' + circleIndex,
+                    text: label || fallbackLabel,
                 }).appendTo($select);
             });
 
@@ -1057,6 +1134,7 @@ H5PEditor.widgets.eulerIntersections = H5PEditor.EulerIntersections = (function 
                 $('<button>', {
                     type: 'button',
                     class: 'h5peditor-button h5p-diagram-editor-remove-circle',
+                    'aria-label': self.t('remove'),
                     text: '×',
                 })
                     .appendTo($row)

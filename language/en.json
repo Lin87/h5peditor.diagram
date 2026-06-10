@@ -1,0 +1,15 @@
+{
+  "libraryStrings": {
+    "previewNotAvailable": "Preview not available (diagram library not loaded).",
+    "previewPlaceholder": "A preview of the diagram will be displayed here once data is available.",
+    "addIntersection": "Add intersection",
+    "addCircle": "Add circle",
+    "remove": "Remove",
+    "label": "Label",
+    "size": "Size",
+    "circleLabel": "Circle :index",
+    "addPairwiseIntersections": "Add pairwise intersections for: :pairs.",
+    "increasePairwiseSizes": "Increase these pairwise sizes to at least :size: :pairs.",
+    "multiCircleIntersectionWarning": "Multi-circle intersections need matching pairwise overlaps to render. :details"
+  }
+}

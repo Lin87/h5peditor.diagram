@@ -1,0 +1,15 @@
+{
+  "libraryStrings": {
+    "previewNotAvailable": "Aperçu indisponible (bibliothèque de diagramme non chargée).",
+    "previewPlaceholder": "Un aperçu du diagramme s'affichera ici dès que des données seront disponibles.",
+    "addIntersection": "Ajouter une intersection",
+    "addCircle": "Ajouter un cercle",
+    "remove": "Supprimer",
+    "label": "Étiquette",
+    "size": "Taille",
+    "circleLabel": "Cercle :index",
+    "addPairwiseIntersections": "Ajoutez des intersections par paires pour :pairs.",
+    "increasePairwiseSizes": "Augmentez ces tailles par paires à au moins :size : :pairs.",
+    "multiCircleIntersectionWarning": "Les intersections à plusieurs cercles nécessitent des chevauchements par paires correspondants pour s'afficher. :details"
+  }
+}

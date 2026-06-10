@@ -1,0 +1,15 @@
+{
+  "libraryStrings": {
+    "previewNotAvailable": "Vista previa no disponible (la biblioteca de diagramas no está cargada).",
+    "previewPlaceholder": "Se mostrará una vista previa del diagrama una vez que haya datos disponibles.",
+    "addIntersection": "Añadir intersección",
+    "addCircle": "Añadir círculo",
+    "remove": "Eliminar",
+    "label": "Etiqueta",
+    "size": "Tamaño",
+    "circleLabel": "Círculo :index",
+    "addPairwiseIntersections": "Añade intersecciones por pares para: :pairs.",
+    "increasePairwiseSizes": "Aumenta estos tamaños por pares al menos a :size: :pairs.",
+    "multiCircleIntersectionWarning": "Las intersecciones de varios círculos necesitan superposiciones por pares coincidentes para renderizarse. :details"
+  }
+}

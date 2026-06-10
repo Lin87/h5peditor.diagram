@@ -1,0 +1,15 @@
+{
+  "libraryStrings": {
+    "previewNotAvailable": "预览不可用（图表库未加载）。",
+    "previewPlaceholder": "数据可用后，此处将显示图表预览。",
+    "addIntersection": "添加交集",
+    "addCircle": "添加圆圈",
+    "remove": "移除",
+    "label": "标签",
+    "size": "大小",
+    "circleLabel": "圆圈 :index",
+    "addPairwiseIntersections": "为以下项添加两两交集：:pairs。",
+    "increasePairwiseSizes": "将这些两两大小增加到至少 :size：:pairs。",
+    "multiCircleIntersectionWarning": "多圆交集需要匹配的两两重叠才能渲染。:details"
+  }
+}
